@@ -41,7 +41,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'AI Security Gateway API is running' });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT} (Network: http://10.104.9.167:${PORT})`);
