@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
+import dns from 'dns';
 import { User, UserRole } from '../models/User';
 import { Agent, RiskLevel, AgentStatus } from '../models/Agent';
 import { Permission, PermissionType, PermissionStatus } from '../models/Permission';
@@ -9,6 +10,7 @@ import { AuditLog } from '../models/AuditLog';
 import { SecurityAlert } from '../models/SecurityAlert';
 import { Approval } from '../models/Approval';
 
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 dotenv.config();
 
 const seedData = async () => {
@@ -26,14 +28,22 @@ const seedData = async () => {
     await SecurityAlert.deleteMany({});
     await Approval.deleteMany({});
 
-    console.log('Creating Admin User...');
+    console.log('Creating Admin Users...');
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('admin123', salt);
+    const naveenaHash = await bcrypt.hash('Amypo@2026', salt);
 
     const adminUser = await User.create({
       username: 'admin',
       email: 'admin@zero-trust-ai.local',
       passwordHash,
+      role: UserRole.ADMIN,
+    });
+
+    await User.create({
+      username: 'naveena',
+      email: 'naveenapalanisamy@gmail.com',
+      passwordHash: naveenaHash,
       role: UserRole.ADMIN,
     });
 
