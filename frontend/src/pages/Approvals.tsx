@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { CheckCircle2, ShieldX, Clock, AlertTriangle, MessageSquare, ShieldAlert, FileText, User } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api';
+const API_BASE = (import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api';
 
 const Approvals = () => {
   const [approvals, setApprovals] = useState<any[]>([]);

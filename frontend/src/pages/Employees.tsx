@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, User, ChevronDown, ChevronUp, Trash2, Save } from 'lucide-react';
 
-const API = (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api';
+const API = (import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api';
 
 interface Employee {
   _id?: string;
