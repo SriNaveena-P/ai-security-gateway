@@ -32,7 +32,7 @@ export const addEmployee = async (req: Request, res: Response) => {
       course,
       moduleScores: [],
       projectGrades: [],
-    });
+    } as any);
 
     res.status(201).json(employee);
   } catch (err: any) {

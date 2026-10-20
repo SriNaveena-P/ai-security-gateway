@@ -141,7 +141,7 @@ const logQuery = async (question: string, response: QAResponse, userId: string |
       userId,
       intent: response.intent,
       responseTimeMs
-    });
+    } as any);
   } catch (err) {
     console.error('Failed to log QA query:', err);
   }

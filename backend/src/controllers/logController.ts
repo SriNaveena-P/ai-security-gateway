@@ -38,10 +38,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   try {
     const totalAgents = await Agent.countDocuments();
     const totalActions = await ActionRequest.countDocuments();
-    const allowedActions = await ActionRequest.countDocuments({ decision: 'ALLOW' });
-    const blockedActions = await ActionRequest.countDocuments({ decision: 'BLOCK' });
-    const pendingApprovals = await ActionRequest.countDocuments({ decision: 'APPROVAL_REQUIRED' });
-    const activeThreats = await SecurityAlert.countDocuments({ status: 'NEW' });
+    const allowedActions = await ActionRequest.countDocuments({ decision: 'ALLOW' } as any);
+    const blockedActions = await ActionRequest.countDocuments({ decision: 'BLOCK' } as any);
+    const pendingApprovals = await ActionRequest.countDocuments({ decision: 'APPROVAL_REQUIRED' } as any);
+    const activeThreats = await SecurityAlert.countDocuments({ status: 'NEW' } as any);
 
     res.json({
       totalAgents,

@@ -23,15 +23,15 @@ function isSensitiveQuery(question: string): boolean {
   return SENSITIVE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-async function getOrCreateQAAgent() {
-  let agent = await Agent.findOne({ name: 'QA Chatbot Agent' });
+async function getOrCreateQAAgent(): Promise<any> {
+  let agent: any = await Agent.findOne({ name: 'QA Chatbot Agent' });
   if (!agent) {
     agent = await Agent.create({
       name: 'QA Chatbot Agent',
       description: 'Automated agent for campus QA queries',
       status: 'ACTIVE',
       riskLevel: 'LOW',
-    });
+    } as any);
   }
   return agent;
 }
@@ -74,7 +74,7 @@ export const askQuestion = async (req: Request, res: Response) => {
         reasons: gatewayResult.reasons,
         threatsDetected: gatewayResult.threats || [],
         executionStatus: gatewayResult.decision === 'ALLOW' ? 'EXECUTED_IN_SANDBOX' : 'BLOCKED',
-      }).catch(() => {});
+      } as any).catch(() => {});
 
       if (gatewayResult.decision === 'BLOCK') {
         return res.json({
@@ -120,7 +120,7 @@ export const askQuestion = async (req: Request, res: Response) => {
         reasons: [`QA query allowed by gateway: ${result.intent} intent`],
         executionStatus: 'EXECUTED_IN_SANDBOX',
         threatsDetected: []
-      }).catch(() => {});
+      } as any).catch(() => {});
 
       return res.json({
         answer: result.answer,
@@ -149,7 +149,7 @@ export const askQuestion = async (req: Request, res: Response) => {
       reasons: ['Non-sensitive QA query, no gateway check needed'],
       executionStatus: 'EXECUTED_IN_SANDBOX',
       threatsDetected: []
-    }).catch(() => {});
+    } as any).catch(() => {});
 
     return res.json({
       answer: result.answer,

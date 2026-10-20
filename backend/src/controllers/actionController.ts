@@ -10,7 +10,7 @@ import { sendWebhookAlert } from '../utils/webhook';
 export const evaluateActionRequest = async (req: AuthRequest, res: Response) => {
   try {
     const { agentId, actionType, resource, description, parameters } = req.body;
-    const userId = req.user?._id as string;
+    const userId = req.user?._id ? (req.user._id as any).toString() : '';
 
     const evaluationResult = await evaluateAction({
       agentId,
@@ -30,7 +30,7 @@ export const evaluateActionRequest = async (req: AuthRequest, res: Response) => 
 export const executeActionRequest = async (req: AuthRequest, res: Response) => {
   try {
     const { agentId, actionType, resource, description, parameters } = req.body;
-    const userId = req.user?._id as string;
+    const userId = req.user?._id ? (req.user._id as any).toString() : '';
 
     const evaluationResult = await evaluateAction({
       agentId,
@@ -42,7 +42,7 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
     });
 
     // Create an ActionRequest log in the DB
-    const actionRequest = await ActionRequest.create({
+    const actionRequest: any = await ActionRequest.create({
       agentId,
       userId,
       actionType,
@@ -54,7 +54,7 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
       reasons: evaluationResult.reasons,
       threats: evaluationResult.threats,
       decision: evaluationResult.decision
-    });
+    } as any);
 
     let executionResult = '';
     
@@ -71,7 +71,7 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
         decision: evaluationResult.decision,
         reasons: evaluationResult.reasons,
         executionStatus: 'EXECUTED_IN_SANDBOX'
-      });
+      } as any);
     } else if (evaluationResult.decision === ActionDecision.BLOCK) {
       executionResult = 'Execution Prevented (Blocked)';
       await AuditLog.create({
@@ -85,13 +85,13 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
         decision: evaluationResult.decision,
         reasons: evaluationResult.reasons,
         executionStatus: 'BLOCKED'
-      });
+      } as any);
     } else if (evaluationResult.decision === ActionDecision.APPROVAL_REQUIRED) {
       // Create Approval Request
       await Approval.create({
-        actionRequestId: actionRequest._id,
+        actionRequestId: actionRequest?._id,
         status: 'PENDING'
-      });
+      } as any);
       executionResult = 'Execution Paused - Pending Human Approval';
     }
 
@@ -106,9 +106,9 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
         severity,
         description,
         agentId,
-        actionRequestId: actionRequest._id,
+        actionRequestId: actionRequest?._id,
         status: 'NEW'
-      });
+      } as any);
 
       // Dispatch Webhook Alerts asynchronously
       sendWebhookAlert({
