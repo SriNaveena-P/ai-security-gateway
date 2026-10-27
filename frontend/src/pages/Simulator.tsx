@@ -16,7 +16,7 @@ const MOCK_RESOURCES = [
   'external_email@example.com'
 ];
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api';
+const API_BASE = 'https://ai-security-gateway-9mr3.onrender.com' + '/api';
 
 const Simulator = () => {
   const [formData, setFormData] = useState({

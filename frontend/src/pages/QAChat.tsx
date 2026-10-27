@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const API = (import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api/v1';
+const API = 'https://ai-security-gateway-9mr3.onrender.com' + '/api/v1';
 
 interface Source {
   record_id: string;

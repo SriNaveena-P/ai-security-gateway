@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bot, Plus, ToggleLeft, ToggleRight, Trash2, Shield, AlertTriangle } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api';
+const API_BASE = 'https://ai-security-gateway-9mr3.onrender.com' + '/api';
 
 const Agents = () => {
   const [agents, setAgents] = useState<any[]>([]);

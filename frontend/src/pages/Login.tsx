@@ -16,11 +16,20 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const { data } = await axios.post((import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api/auth/login', { email, password });
+      const apiUrl = 'https://ai-security-gateway-9mr3.onrender.com';
+      const { data } = await axios.post(`${apiUrl}/api/auth/login`, { email, password });
       localStorage.setItem('token', data.token);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError('Access Denied. Invalid credentials or unauthorized account.');
+      console.error('Login error:', err);
+      const serverMsg = err.response?.data?.message;
+      if (serverMsg) {
+        setError(serverMsg);
+      } else if (err.message) {
+        setError(`Connection failed: ${err.message}`);
+      } else {
+        setError('Access Denied. Invalid credentials or unauthorized account.');
+      }
     }
     setLoading(false);
   };

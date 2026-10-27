@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { ShieldAlert, CheckCircle2, ShieldX, Clock, Activity, Users, AlertTriangle } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'https://ai-security-gateway-9mr3.onrender.com') + '/api';
+const API_BASE = 'https://ai-security-gateway-9mr3.onrender.com' + '/api';
 
 const StatCard = ({ title, value, icon: Icon, color }: any) => (
   <div className="bg-[#0f172a]/60 backdrop-blur-xl border border-slate-800/60 rounded-2xl p-5 hover:border-slate-700/80 transition-all duration-300 relative overflow-hidden group">
