@@ -37,6 +37,10 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api', logRoutes); // Mounts /api/logs, /api/alerts, /api/dashboard/stats (protected)
 
 // Basic health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', name: 'Zero Trust AI Security Gateway API', version: '1.0.0' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'AI Security Gateway API is running' });
 });
