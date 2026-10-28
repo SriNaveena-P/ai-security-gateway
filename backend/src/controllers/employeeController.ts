@@ -12,24 +12,48 @@ export const getEmployees = async (req: Request, res: Response) => {
 
 export const addEmployee = async (req: Request, res: Response) => {
   try {
-    const { studentId, name, email, gpa, attendance, skills, completedProjects, codingChallengesSolved, softSkills, course } = req.body;
+    const { 
+      studentId, 
+      name, 
+      email, 
+      position, 
+      department, 
+      salary, 
+      joiningYear, 
+      address, 
+      skills, 
+      gpa, 
+      attendance, 
+      completedProjects, 
+      codingChallengesSolved, 
+      softSkills, 
+      course 
+    } = req.body;
     
     const existing = await StudentRecord.findOne({ studentId });
     if (existing) {
-      return res.status(400).json({ message: `Student ID ${studentId} already exists` });
+      return res.status(400).json({ message: `Employee ID ${studentId} already exists` });
     }
 
     const employee = await StudentRecord.create({
       studentId,
       name,
       email,
-      gpa,
-      attendance,
-      skills: skills || [],
-      completedProjects: completedProjects || 0,
-      codingChallengesSolved: codingChallengesSolved || 0,
+      position: position || 'Software Engineer',
+      department: department || 'Engineering',
+      salary: salary || '₹12,00,000',
+      joiningYear: joiningYear || 2024,
+      address: address || 'Chennai, Tamil Nadu',
+      skills: Array.isArray(skills) 
+        ? skills.map((s: any) => typeof s === 'string' ? { name: s, proficiency: 'Advanced', score: 85 } : s)
+        : [],
+      gpa: gpa || 8.5,
+      attendance: attendance || 95,
+      year: joiningYear || 2024,
+      completedProjects: completedProjects || 3,
+      codingChallengesSolved: codingChallengesSolved || 15,
       softSkills: softSkills || [],
-      course,
+      course: course || department || 'Cyber Security',
       moduleScores: [],
       projectGrades: [],
     } as any);
