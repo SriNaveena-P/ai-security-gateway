@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { generateAnswer } from '../qa/answerer';
 import { checkEligibility, suggestCompanies } from '../qa/placementMatcher';
 import { AuditLog } from '../models/AuditLog';
 import { evaluateAction } from '../security/gateway';
 import { Agent } from '../models/Agent';
-import { PermissionType } from '../models/Permission';
+import { Permission, PermissionType, PermissionStatus } from '../models/Permission';
+import { User } from '../models/User';
 
 // Keywords that trigger security gateway evaluation
 const SENSITIVE_KEYWORDS = [
@@ -26,12 +28,21 @@ function isSensitiveQuery(question: string): boolean {
 async function getOrCreateQAAgent(): Promise<any> {
   let agent: any = await Agent.findOne({ name: 'QA Chatbot Agent' });
   if (!agent) {
+    const adminUser = await User.findOne({});
+    const ownerId = adminUser ? adminUser._id : new mongoose.Types.ObjectId();
     agent = await Agent.create({
       name: 'QA Chatbot Agent',
       description: 'Automated agent for campus QA queries',
       status: 'ACTIVE',
       riskLevel: 'LOW',
+      ownerId,
     } as any);
+
+    await Permission.create({
+      agentId: agent._id,
+      permissionType: PermissionType.SENSITIVE_DATA_ACCESS,
+      status: PermissionStatus.ALLOW,
+    } as any).catch(() => {});
   }
   return agent;
 }
@@ -64,17 +75,23 @@ export const askQuestion = async (req: Request, res: Response) => {
       });
 
       // Log to audit trail
-      await AuditLog.create({
-        agentId: agent._id,
-        actionType: 'QA_SENSITIVE_QUERY',
-        resource: `qa://employee-data`,
-        riskScore: gatewayResult.riskScore,
-        riskLevel: gatewayResult.riskLevel,
-        decision: gatewayResult.decision,
-        reasons: gatewayResult.reasons,
-        threatsDetected: gatewayResult.threats || [],
-        executionStatus: gatewayResult.decision === 'ALLOW' ? 'EXECUTED_IN_SANDBOX' : 'BLOCKED',
-      } as any).catch(() => {});
+      try {
+        const adminUser = await User.findOne({});
+        await AuditLog.create({
+          userId: adminUser ? adminUser._id : agent.ownerId,
+          agentId: agent._id,
+          actionType: PermissionType.SENSITIVE_DATA_ACCESS,
+          resource: `qa://employee-data`,
+          riskScore: gatewayResult.riskScore,
+          riskLevel: gatewayResult.riskLevel,
+          decision: gatewayResult.decision,
+          reasons: gatewayResult.reasons,
+          threatsDetected: gatewayResult.threats || [],
+          executionStatus: gatewayResult.decision === 'ALLOW' ? 'EXECUTED_IN_SANDBOX' : 'BLOCKED',
+        } as any);
+      } catch (logErr) {
+        // Non-blocking log failure
+      }
 
       if (gatewayResult.decision === 'BLOCK') {
         return res.json({
@@ -140,16 +157,24 @@ export const askQuestion = async (req: Request, res: Response) => {
     // --- Non-sensitive query: skip gateway, answer directly ---
     const result = await generateAnswer(q, user_id);
 
-    await AuditLog.create({
-      actionType: 'QA_QUERY',
-      resource: `qa://${result.intent}`,
-      riskScore: 0,
-      riskLevel: 'LOW',
-      decision: 'ALLOW',
-      reasons: ['Non-sensitive QA query, no gateway check needed'],
-      executionStatus: 'EXECUTED_IN_SANDBOX',
-      threatsDetected: []
-    } as any).catch(() => {});
+    try {
+      const adminUser = await User.findOne({});
+      const qaAgent = await getOrCreateQAAgent();
+      await AuditLog.create({
+        userId: adminUser ? adminUser._id : qaAgent.ownerId,
+        agentId: qaAgent._id,
+        actionType: PermissionType.DATABASE_READ,
+        resource: `qa://${result.intent}`,
+        riskScore: 0,
+        riskLevel: 'LOW',
+        decision: 'ALLOW',
+        reasons: ['Non-sensitive QA query, no gateway check needed'],
+        executionStatus: 'EXECUTED_IN_SANDBOX',
+        threatsDetected: []
+      } as any);
+    } catch (logErr) {
+      // Non-blocking log failure
+    }
 
     return res.json({
       answer: result.answer,
