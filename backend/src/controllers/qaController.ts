@@ -128,16 +128,23 @@ export const askQuestion = async (req: Request, res: Response) => {
       // ALLOW — proceed with answer, attach gateway info
       const result = await generateAnswer(q, user_id);
 
-      await AuditLog.create({
-        actionType: 'QA_QUERY',
-        resource: `qa://${result.intent}`,
-        riskScore: gatewayResult.riskScore,
-        riskLevel: 'LOW',
-        decision: 'ALLOW',
-        reasons: [`QA query allowed by gateway: ${result.intent} intent`],
-        executionStatus: 'EXECUTED_IN_SANDBOX',
-        threatsDetected: []
-      } as any).catch(() => {});
+      try {
+        const adminForLog = await User.findOne({});
+        await AuditLog.create({
+          userId: adminForLog ? adminForLog._id : agent.ownerId,
+          agentId: agent._id,
+          actionType: PermissionType.SENSITIVE_DATA_ACCESS,
+          resource: `qa://${result.intent}`,
+          riskScore: gatewayResult.riskScore,
+          riskLevel: 'LOW',
+          decision: 'ALLOW',
+          reasons: [`QA query allowed by gateway: ${result.intent} intent`],
+          executionStatus: 'EXECUTED_IN_SANDBOX',
+          threatsDetected: []
+        } as any);
+      } catch (_logErr) {
+        // Non-blocking
+      }
 
       return res.json({
         answer: result.answer,

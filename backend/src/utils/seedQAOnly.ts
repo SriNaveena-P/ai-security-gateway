@@ -177,19 +177,108 @@ const companies = [
   }
 ];
 
+const students = [
+  {
+    studentId: 'AMYPO2024001', name: 'Arun Kumar', email: 'arun.kumar@amypo.edu', department: 'Computer Science', year: 4, gpa: 8.5, attendance: 92,
+    skills: [
+      { name: 'JavaScript', proficiency: 'Advanced', score: 85 }, { name: 'React', proficiency: 'Advanced', score: 80 },
+      { name: 'Node.js', proficiency: 'Intermediate', score: 70 }, { name: 'Python', proficiency: 'Intermediate', score: 65 },
+      { name: 'MongoDB', proficiency: 'Intermediate', score: 72 }, { name: 'Git', proficiency: 'Advanced', score: 88 },
+      { name: 'SQL', proficiency: 'Intermediate', score: 60 }, { name: 'Data Structures', proficiency: 'Advanced', score: 82 }
+    ],
+    projects: [
+      { title: 'E-Commerce Platform', description: 'Full stack e-commerce app with payment integration', techStack: ['React', 'Node.js', 'MongoDB', 'Stripe'], grade: 'A' },
+      { title: 'Task Manager API', description: 'RESTful API with JWT authentication', techStack: ['Express', 'MongoDB', 'JWT'], grade: 'A' }
+    ],
+    codingChallenges: [{ platform: 'LeetCode', solved: 180, rank: 'Guardian' }],
+    softSkills: { communication: 78, teamwork: 85, leadership: 72, problemSolving: 88 },
+    placementStatus: 'Not Placed'
+  },
+  {
+    studentId: 'AMYPO2024002', name: 'Priya Sharma', email: 'priya.sharma@amypo.edu', department: 'Computer Science', year: 4, gpa: 9.1, attendance: 96,
+    skills: [
+      { name: 'Python', proficiency: 'Expert', score: 92 }, { name: 'TensorFlow', proficiency: 'Advanced', score: 82 },
+      { name: 'SQL', proficiency: 'Advanced', score: 85 }, { name: 'Pandas', proficiency: 'Expert', score: 90 },
+      { name: 'Machine Learning', proficiency: 'Advanced', score: 80 }, { name: 'Statistics', proficiency: 'Advanced', score: 78 },
+      { name: 'Data Structures', proficiency: 'Advanced', score: 85 }, { name: 'System Design', proficiency: 'Intermediate', score: 68 }
+    ],
+    projects: [
+      { title: 'Sentiment Analysis Tool', description: 'NLP-based sentiment classifier using BERT', techStack: ['Python', 'TensorFlow', 'BERT', 'Flask'], grade: 'A+' },
+      { title: 'Sales Prediction Model', description: 'Time series forecasting for retail sales', techStack: ['Python', 'Scikit-learn', 'Pandas'], grade: 'A' },
+      { title: 'Image Classifier', description: 'CNN-based image classification system', techStack: ['Python', 'TensorFlow', 'Keras'], grade: 'A' }
+    ],
+    codingChallenges: [{ platform: 'HackerRank', solved: 220, rank: '5 Star' }],
+    softSkills: { communication: 90, teamwork: 88, leadership: 80, problemSolving: 92 },
+    placementStatus: 'Not Placed'
+  },
+  {
+    studentId: 'AMYPO2024003', name: 'Rajesh Menon', email: 'rajesh.menon@amypo.edu', department: 'Information Technology', year: 4, gpa: 7.2, attendance: 78,
+    skills: [
+      { name: 'Java', proficiency: 'Intermediate', score: 68 }, { name: 'Spring Boot', proficiency: 'Beginner', score: 45 },
+      { name: 'SQL', proficiency: 'Intermediate', score: 65 }, { name: 'HTML', proficiency: 'Advanced', score: 80 },
+      { name: 'CSS', proficiency: 'Intermediate', score: 70 }, { name: 'Python', proficiency: 'Beginner', score: 40 }
+    ],
+    projects: [
+      { title: 'Library Management System', description: 'CRUD application for library books', techStack: ['Java', 'MySQL', 'JSP'], grade: 'B+' }
+    ],
+    codingChallenges: [{ platform: 'LeetCode', solved: 60, rank: 'Knight' }],
+    softSkills: { communication: 65, teamwork: 70, leadership: 55, problemSolving: 68 },
+    placementStatus: 'Not Placed'
+  },
+  {
+    studentId: 'AMYPO2024004', name: 'Deepa Lakshmi', email: 'deepa.lakshmi@amypo.edu', department: 'Computer Science', year: 4, gpa: 8.8, attendance: 94,
+    skills: [
+      { name: 'AWS', proficiency: 'Advanced', score: 82 }, { name: 'Docker', proficiency: 'Advanced', score: 78 },
+      { name: 'Kubernetes', proficiency: 'Intermediate', score: 70 }, { name: 'Linux', proficiency: 'Advanced', score: 85 },
+      { name: 'Terraform', proficiency: 'Intermediate', score: 65 }, { name: 'Python', proficiency: 'Advanced', score: 80 },
+      { name: 'Java', proficiency: 'Intermediate', score: 68 }, { name: 'SQL', proficiency: 'Advanced', score: 78 }
+    ],
+    projects: [
+      { title: 'Cloud Deployment Pipeline', description: 'Automated CI/CD pipeline with Jenkins and Docker', techStack: ['Docker', 'Jenkins', 'AWS', 'Terraform'], grade: 'A' },
+      { title: 'Microservices Architecture', description: 'Distributed system with Kubernetes orchestration', techStack: ['Kubernetes', 'Node.js', 'Redis', 'RabbitMQ'], grade: 'A' }
+    ],
+    codingChallenges: [{ platform: 'HackerRank', solved: 150, rank: '4 Star' }],
+    softSkills: { communication: 82, teamwork: 90, leadership: 78, problemSolving: 85 },
+    placementStatus: 'Not Placed'
+  },
+  {
+    studentId: 'AMYPO2024005', name: 'Mohammed Faisal', email: 'faisal.m@amypo.edu', department: 'Computer Science', year: 4, gpa: 6.8, attendance: 72,
+    skills: [
+      { name: 'JavaScript', proficiency: 'Intermediate', score: 60 }, { name: 'React', proficiency: 'Beginner', score: 45 },
+      { name: 'HTML', proficiency: 'Advanced', score: 82 }, { name: 'CSS', proficiency: 'Intermediate', score: 68 },
+      { name: 'PHP', proficiency: 'Intermediate', score: 58 }, { name: 'SQL', proficiency: 'Beginner', score: 40 }
+    ],
+    projects: [
+      { title: 'Portfolio Website', description: 'Personal portfolio with responsive design', techStack: ['HTML', 'CSS', 'JavaScript'], grade: 'B' }
+    ],
+    codingChallenges: [{ platform: 'LeetCode', solved: 35, rank: 'Beginner' }],
+    softSkills: { communication: 60, teamwork: 65, leadership: 50, problemSolving: 58 },
+    placementStatus: 'Not Placed'
+  }
+];
+
 const seedQAData = async () => {
   try {
     await mongoose.connect(MONGODB_URI);
     console.log('MongoDB connected for QA seeding...');
 
-    // Clear existing QA documents, courses and companies (leaves users and student records untouched!)
+    // Clear ALL QA-related collections for clean re-seed
     await Course.deleteMany({});
     await CompanyCriteria.deleteMany({});
     await QADocument.deleteMany({});
+    await StudentRecord.deleteMany({});
 
     // Seed Courses
     const createdCourses = await Course.insertMany(courses);
     console.log(`✅ Seeded ${createdCourses.length} courses`);
+
+    // Seed Students (link course IDs)
+    const studentsWithCourses = students.map((s, i) => ({
+      ...s,
+      courses: [{ courseId: createdCourses[i % createdCourses.length]._id, courseName: createdCourses[i % createdCourses.length].name, grade: 'A', score: 85, completed: true }]
+    }));
+    const createdStudents = await StudentRecord.insertMany(studentsWithCourses);
+    console.log(`✅ Seeded ${createdStudents.length} student records`);
 
     // Seed Companies
     const createdCompanies = await CompanyCriteria.insertMany(companies);
@@ -243,13 +332,12 @@ const seedQAData = async () => {
       }
     }
 
-    // From existing StudentRecords (Employees)
-    const existingEmployees = await StudentRecord.find({});
-    for (const emp of existingEmployees) {
-      const empText = `Employee / Student: ${emp.name}. ID: ${emp.studentId}. Department: ${emp.department}. Position: ${(emp as any).position || 'Engineer'}. Salary: ${(emp as any).salary || 'Confidential'}. Year: ${emp.year}.`;
+    // From Students (structured records as text)
+    for (const student of createdStudents) {
+      const studentText = `Student: ${student.name}. ID: ${student.studentId}. Department: ${student.department}. Year: ${student.year}. GPA: ${student.gpa}. Attendance: ${student.attendance}%. Skills: ${student.skills.map((s: any) => `${s.name} (${s.proficiency})`).join(', ')}. Projects: ${student.projects.map((p: any) => p.title).join(', ')}. Coding challenges solved: ${student.codingChallenges.map((c: any) => `${c.solved} on ${c.platform}`).join(', ')}. Placement status: ${student.placementStatus}.`;
       docs.push({
-        content: empText, chunk: empText, sourceType: 'student_record',
-        sourceId: emp._id.toString(), sourceName: `Employee: ${emp.name}`, metadata: { studentId: emp.studentId }
+        content: studentText, chunk: studentText, sourceType: 'student_record',
+        sourceId: student._id.toString(), sourceName: `Student: ${student.name}`, metadata: { studentId: student.studentId, gpa: student.gpa }
       });
     }
 
