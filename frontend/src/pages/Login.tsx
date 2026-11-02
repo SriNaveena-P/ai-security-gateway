@@ -62,8 +62,8 @@ export default function Login() {
             {/* Ping effect */}
             <div className="absolute inset-0 rounded-2xl animate-ping bg-sky-500/20" style={{ animationDuration: '3s' }} />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">ZeroTrust AI</h1>
-          <p className="text-sky-500 text-xs uppercase tracking-widest font-semibold mt-1">Security Gateway</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">NavGuard AI</h1>
+          <p className="text-sky-500 text-xs uppercase tracking-widest font-semibold mt-1">Zero-Trust Security Gateway</p>
           <div className="flex items-center gap-2 mt-3">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-emerald-400 text-xs font-medium">System Active & Monitoring</span>
@@ -157,7 +157,7 @@ export default function Login() {
         {/* Footer */}
         <div className="mt-5 text-center space-y-1">
           <p className="text-slate-600 text-xs">🔒 All login attempts are logged and monitored</p>
-          <p className="text-slate-700 text-xs">Zero Trust AI Security Gateway • AMYPO 2026</p>
+          <p className="text-slate-700 text-xs">NavGuard AI • Zero-Trust Security Gateway</p>
         </div>
       </div>
     </div>

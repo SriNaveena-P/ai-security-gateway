@@ -228,7 +228,7 @@ export default function QAChat() {
                         : 'bg-gray-100 border-gray-200 text-gray-500'
                     }`}>
                       <div className="flex items-center gap-1.5 font-semibold mb-1">
-                        🛡️ Security Gateway:
+                        🛡️ NavGuard AI:
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                           msg.gateway.decision === 'BLOCK' ? 'bg-red-500 text-white'
                           : msg.gateway.decision === 'APPROVAL_REQUIRED' ? 'bg-yellow-500 text-white'

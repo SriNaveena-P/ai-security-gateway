@@ -102,7 +102,7 @@ const Simulator = () => {
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white tracking-tight">Action Simulator</h2>
-        <p className="text-slate-400 text-sm mt-1">Test the Security Gateway by simulating AI agent requests.</p>
+        <p className="text-slate-400 text-sm mt-1">Test NavGuard AI by simulating AI agent requests.</p>
       </div>
 
       {error && (
@@ -192,7 +192,7 @@ const Simulator = () => {
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-current" />
-                  <span>Execute via Security Gateway</span>
+                  <span>Execute via NavGuard AI</span>
                 </>
               )}
             </button>
@@ -314,7 +314,7 @@ const Simulator = () => {
                 <Shield className="w-8 h-8 text-slate-600" />
               </div>
               <h3 className="text-lg font-medium text-slate-400">No Action Simulated</h3>
-              <p className="text-sm text-slate-500 mt-2 max-w-sm">Configure a request on the left and execute it via the Security Gateway to see the Zero Trust security analysis here.</p>
+              <p className="text-sm text-slate-500 mt-2 max-w-sm">Configure a request on the left and execute it via NavGuard AI to see the Zero-Trust security analysis here.</p>
             </div>
           )}
         </div>

@@ -402,7 +402,7 @@ export default function Employees() {
                       </p>
                       <p className="text-sm font-bold text-emerald-400">{emp.salary || 'Confidential'}</p>
                       <span className="inline-block mt-1 text-[11px] bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-medium">
-                        🛡️ PII Protected by Security Gateway
+                        🛡️ PII Protected by NavGuard AI
                       </span>
                     </div>
 

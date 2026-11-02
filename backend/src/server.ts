@@ -38,11 +38,14 @@ app.use('/api', logRoutes); // Mounts /api/logs, /api/alerts, /api/dashboard/sta
 
 // Basic health check
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', name: 'Zero Trust AI Security Gateway API', version: '1.0.0' });
+  if (req.accepts('html')) {
+    return res.redirect('https://ai-security-gateway-lemon.vercel.app');
+  }
+  res.json({ status: 'ok', name: 'NavGuard AI Security Gateway API', version: '1.0.0', webApp: 'https://ai-security-gateway-lemon.vercel.app' });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'AI Security Gateway API is running' });
+  res.json({ status: 'ok', message: 'NavGuard AI Security Gateway API is running' });
 });
 
 const PORT = parseInt(process.env.PORT || '5000', 10);

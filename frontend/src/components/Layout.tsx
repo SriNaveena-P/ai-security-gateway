@@ -36,8 +36,8 @@ const Layout = () => {
             <div className="absolute inset-0 rounded-xl border border-white/20"></div>
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">ZeroTrust AI</h1>
-            <p className="text-[10px] uppercase tracking-widest text-primary-500 font-semibold">Security Gateway</p>
+            <h1 className="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">NavGuard AI</h1>
+            <p className="text-[10px] uppercase tracking-widest text-primary-500 font-semibold">Zero-Trust Gateway</p>
           </div>
         </div>
 

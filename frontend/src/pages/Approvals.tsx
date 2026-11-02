@@ -75,7 +75,7 @@ const Approvals = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Security Gateway Approvals</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">NavGuard AI Approvals</h2>
           <p className="text-slate-400 text-sm mt-1">Review and action paused high-risk agent operations.</p>
         </div>
         
