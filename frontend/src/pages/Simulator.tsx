@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Play, AlertTriangle, CheckCircle2, ShieldX, Server, FileText, Database, Lock, Bot } from 'lucide-react';
 import axios from 'axios';
+import PasskeyModal from '../components/PasskeyModal';
+
+const SENSITIVE_ACTIONS = ['DATABASE_WRITE', 'SENSITIVE_DATA_ACCESS', 'FILE_WRITE'];
 
 const ACTIONS = [
   'FILE_READ', 'FILE_WRITE', 'DATABASE_READ', 'DATABASE_WRITE', 
@@ -31,12 +34,13 @@ const Simulator = () => {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [passkeyModal, setPasskeyModal] = useState(false);
+  const [passkeyToken, setPasskeyToken] = useState<string | null>(null);
 
   // Setup Demo Auth & Fetch Agents
   useEffect(() => {
     const initDemo = async () => {
       try {
-        // Auto-login as the seeded admin for the demo
         const authRes = await axios.post(`${API_BASE}/auth/login`, {
           email: 'admin@zero-trust-ai.local',
           password: 'admin123'
@@ -45,7 +49,6 @@ const Simulator = () => {
         const jwt = authRes.data.token;
         setToken(jwt);
 
-        // Fetch actual agents from DB
         const agentsRes = await axios.get(`${API_BASE}/agents`, {
           headers: { Authorization: `Bearer ${jwt}` }
         });
@@ -64,6 +67,12 @@ const Simulator = () => {
       setError('Not authenticated. Please ensure the backend is running.');
       return;
     }
+
+    // Check if the action is sensitive and requires passkey
+    if (SENSITIVE_ACTIONS.includes(formData.actionType) && !passkeyToken) {
+      setPasskeyModal(true);
+      return;
+    }
     
     setLoading(true);
     setError('');
@@ -71,7 +80,7 @@ const Simulator = () => {
     try {
       const res = await axios.post(
         `${API_BASE}/actions/execute`, 
-        formData,
+        { ...formData, passkeyToken: passkeyToken || undefined },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -88,15 +97,38 @@ const Simulator = () => {
         threats: actionData.threats,
         decision: actionData.decision,
         reasons: actionData.reasons,
-        executionResult: res.data.executionResult
+        executionResult: res.data.executionResult,
+        passkeyUsed: !!passkeyToken
       });
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Error evaluating action');
+      if (err.response?.data?.requiresPasskey) {
+        setPasskeyModal(true);
+        setLoading(false);
+        return;
+      }
+      if (err.response?.data?.securityAlert) {
+        setError('🚨 SECURITY ALERT: Invalid passkey token detected! This incident has been logged.');
+        setPasskeyToken(null);
+      } else {
+        setError(err.response?.data?.message || 'Error evaluating action');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const handlePasskeyVerified = (pToken: string) => {
+    setPasskeyToken(pToken);
+    setPasskeyModal(false);
+    // Auto-submit the form after passkey verification
+    setTimeout(() => {
+      const btn = document.getElementById('simulator-submit-btn');
+      btn?.click();
+    }, 200);
+  };
+
+  const isSensitive = SENSITIVE_ACTIONS.includes(formData.actionType);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -109,6 +141,21 @@ const Simulator = () => {
         <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-lg flex items-center">
           <AlertTriangle className="w-5 h-5 mr-3 flex-shrink-0" />
           <p className="text-sm font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Passkey Status Banner */}
+      {passkeyToken && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-emerald-400 text-sm">
+            <Shield className="w-4 h-4" />
+            <span>🔓 Admin passkey verified — sensitive actions unlocked for this session</span>
+          </div>
+          <button
+            onClick={() => setPasskeyToken(null)}
+            className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors">
+            Revoke
+          </button>
         </div>
       )}
 
@@ -152,6 +199,13 @@ const Simulator = () => {
                   <option key={action} value={action}>{action}</option>
                 ))}
               </select>
+              {/* Sensitive action warning */}
+              {isSensitive && !passkeyToken && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                  <Lock className="w-3.5 h-3.5" />
+                  🔒 This action requires admin passkey verification
+                </div>
+              )}
             </div>
 
             <div>
@@ -183,12 +237,22 @@ const Simulator = () => {
             </div>
 
             <button 
+              id="simulator-submit-btn"
               type="submit"
               disabled={loading || !token}
-              className="w-full mt-4 bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-500 hover:to-blue-500 text-white font-medium py-3 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              className={`w-full mt-4 font-medium py-3 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed ${
+                isSensitive && !passkeyToken
+                  ? 'bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white'
+                  : 'bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-500 hover:to-blue-500 text-white'
+              }`}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : isSensitive && !passkeyToken ? (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>🔐 Verify Passkey & Execute</span>
+                </>
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-current" />
@@ -213,11 +277,18 @@ const Simulator = () => {
                    <AlertTriangle className="w-6 h-6 text-amber-400" />}
                   <h3 className="text-xl font-bold text-white">Security Analysis Result</h3>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border
-                  ${result.decision === 'ALLOW' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
-                    result.decision === 'BLOCK' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
-                    'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
-                  {result.decision}
+                <div className="flex items-center gap-2">
+                  {result.passkeyUsed && (
+                    <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                      🔑 PASSKEY
+                    </span>
+                  )}
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border
+                    ${result.decision === 'ALLOW' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
+                      result.decision === 'BLOCK' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
+                      'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
+                    {result.decision}
+                  </div>
                 </div>
               </div>
 
@@ -320,6 +391,14 @@ const Simulator = () => {
         </div>
 
       </div>
+
+      {/* Passkey Modal */}
+      <PasskeyModal
+        isOpen={passkeyModal}
+        onClose={() => setPasskeyModal(false)}
+        onVerified={handlePasskeyVerified}
+        actionDescription={`You are attempting a sensitive action: ${formData.actionType} on resource "${formData.resource}". This requires admin passkey verification through NavGuard AI Zero-Trust Gateway.`}
+      />
     </div>
   );
 };

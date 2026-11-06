@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, User, ChevronDown, ChevronUp, Trash2, Save, Briefcase, MapPin, DollarSign, Calendar, Building2 } from 'lucide-react';
+import { Plus, User, ChevronDown, ChevronUp, Trash2, Save, Briefcase, MapPin, DollarSign, Calendar, Building2, ShieldAlert } from 'lucide-react';
+import PasskeyModal from '../components/PasskeyModal';
 
 const API = 'https://ai-security-gateway-9mr3.onrender.com' + '/api';
 
@@ -65,9 +66,15 @@ export default function Employees() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [passkeyModal, setPasskeyModal] = useState(false);
+  const [passkeyToken, setPasskeyToken] = useState<string | null>(null);
+  const [passkeyVerified, setPasskeyVerified] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'add' | 'delete' | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteName, setPendingDeleteName] = useState('');
 
   const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers: any = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
     fetchEmployees();
@@ -98,29 +105,77 @@ export default function Employees() {
       setError('Employee Name, Employee ID and Email are required!');
       return;
     }
+    // Require passkey verification first
+    if (!passkeyToken) {
+      setPendingAction('add');
+      setPasskeyModal(true);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      await axios.post(`${API}/employees`, form, { headers });
+      await axios.post(`${API}/employees`, form, {
+        headers: { ...headers, 'x-passkey-token': passkeyToken }
+      });
       setSuccess(`✅ ${form.name} added successfully!`);
       setForm(emptyEmployee);
       setShowForm(false);
       fetchEmployees();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
+      if (err.response?.data?.requiresPasskey) {
+        setPasskeyToken(null);
+        setPasskeyVerified(false);
+        setPendingAction('add');
+        setPasskeyModal(true);
+        return;
+      }
       setError(err.response?.data?.message || 'Failed to save employee record');
     }
     setSaving(false);
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (!passkeyToken) {
+      setPendingAction('delete');
+      setPendingDeleteId(id);
+      setPendingDeleteName(name);
+      setPasskeyModal(true);
+      return;
+    }
     if (!confirm(`Are you sure you want to delete employee record: ${name}?`)) return;
     try {
-      await axios.delete(`${API}/employees/${id}`, { headers });
+      await axios.delete(`${API}/employees/${id}`, {
+        headers: { ...headers, 'x-passkey-token': passkeyToken }
+      });
       setEmployees(prev => prev.filter(e => e._id !== id));
-    } catch {
+      setSuccess(`✅ ${name} deleted successfully!`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      if (err.response?.data?.requiresPasskey) {
+        setPasskeyToken(null);
+        setPasskeyVerified(false);
+        setPendingAction('delete');
+        setPendingDeleteId(id);
+        setPendingDeleteName(name);
+        setPasskeyModal(true);
+        return;
+      }
       alert('Failed to delete employee record');
     }
+  };
+
+  const handlePasskeyVerified = (token: string) => {
+    setPasskeyToken(token);
+    setPasskeyVerified(true);
+    setPasskeyModal(false);
+    // Auto-execute pending action
+    if (pendingAction === 'add') {
+      setTimeout(() => handleSave(), 100);
+    } else if (pendingAction === 'delete' && pendingDeleteId) {
+      setTimeout(() => handleDelete(pendingDeleteId!, pendingDeleteName), 100);
+    }
+    setPendingAction(null);
   };
 
   return (
@@ -143,6 +198,21 @@ export default function Employees() {
           Add Employee
         </button>
       </div>
+
+      {/* Passkey Status Banner */}
+      {passkeyVerified && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-emerald-400 text-sm">
+            <ShieldAlert className="w-4 h-4" />
+            <span>🔓 Admin passkey verified — write access granted for this session</span>
+          </div>
+          <button
+            onClick={() => { setPasskeyToken(null); setPasskeyVerified(false); }}
+            className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors">
+            Revoke Access
+          </button>
+        </div>
+      )}
 
       {/* Success Notification */}
       {success && (
@@ -430,6 +500,18 @@ export default function Employees() {
           })}
         </div>
       )}
+
+      {/* Passkey Modal */}
+      <PasskeyModal
+        isOpen={passkeyModal}
+        onClose={() => { setPasskeyModal(false); setPendingAction(null); }}
+        onVerified={handlePasskeyVerified}
+        actionDescription={
+          pendingAction === 'delete'
+            ? `You are attempting to DELETE employee record: ${pendingDeleteName}. This is a destructive operation requiring admin passkey.`
+            : 'You are attempting to ADD a new employee record. This operation modifies sensitive personnel data and requires admin passkey authentication.'
+        }
+      />
     </div>
   );
 }

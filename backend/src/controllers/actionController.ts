@@ -29,8 +29,50 @@ export const evaluateActionRequest = async (req: AuthRequest, res: Response) => 
 
 export const executeActionRequest = async (req: AuthRequest, res: Response) => {
   try {
-    const { agentId, actionType, resource, description, parameters } = req.body;
+    const { agentId, actionType, resource, description, parameters, passkeyToken } = req.body;
     const userId = req.user?._id ? (req.user._id as any).toString() : '';
+
+    // Passkey check for sensitive write operations
+    const SENSITIVE_ACTIONS = ['DATABASE_WRITE', 'SENSITIVE_DATA_ACCESS', 'FILE_WRITE'];
+    if (SENSITIVE_ACTIONS.includes(actionType)) {
+      if (!passkeyToken) {
+        return res.status(403).json({
+          message: '🔒 This action requires passkey authentication. Sensitive data operations need admin passkey verification.',
+          requiresPasskey: true,
+          actionType,
+        });
+      }
+      // Validate the passkey token
+      try {
+        const decoded = Buffer.from(passkeyToken, 'base64').toString();
+        if (!decoded.startsWith('navguard_')) {
+          // Generate security alert for invalid token
+          await SecurityAlert.create({
+            severity: AlertSeverity.CRITICAL,
+            description: `🛑 FORGED PASSKEY TOKEN: Agent attempted to bypass passkey with invalid token for ${actionType} on ${resource}`,
+            agentId,
+            status: 'NEW',
+          } as any);
+          return res.status(403).json({
+            message: '🚫 Invalid passkey token detected! Security alert has been generated.',
+            requiresPasskey: true,
+            securityAlert: true,
+          });
+        }
+        const timestamp = parseInt(decoded.split('_')[1]);
+        if (Date.now() - timestamp > 30 * 60 * 1000) {
+          return res.status(403).json({
+            message: '⏰ Passkey session expired. Please re-authenticate with your passkey.',
+            requiresPasskey: true,
+          });
+        }
+      } catch {
+        return res.status(403).json({
+          message: '🚫 Invalid passkey token!',
+          requiresPasskey: true,
+        });
+      }
+    }
 
     const evaluationResult = await evaluateAction({
       agentId,
