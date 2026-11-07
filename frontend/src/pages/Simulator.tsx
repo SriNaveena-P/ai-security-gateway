@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Play, AlertTriangle, CheckCircle2, ShieldX, Server, FileText, Lock, Bot, KeyRound } from 'lucide-react';
+import { Shield, Play, AlertTriangle, CheckCircle2, ShieldX, Server, FileText, Lock, Bot, KeyRound, Database, RefreshCw, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import PasskeyModal from '../components/PasskeyModal';
 
 const SENSITIVE_ACTIONS = ['DATABASE_WRITE', 'SENSITIVE_DATA_ACCESS', 'FILE_WRITE'];
 
 const ACTIONS = [
-  'FILE_READ', 'FILE_WRITE', 'DATABASE_READ', 'DATABASE_WRITE', 
-  'API_ACCESS', 'EMAIL_SEND', 'REPORT_GENERATE', 'SENSITIVE_DATA_ACCESS'
+  'DATABASE_WRITE', 'DATABASE_READ', 'SENSITIVE_DATA_ACCESS', 
+  'FILE_READ', 'FILE_WRITE', 'API_ACCESS', 'EMAIL_SEND', 'REPORT_GENERATE'
 ];
 
 const MOCK_RESOURCES = [
-  '/sandbox/public/report.pdf',
+  '/sandbox/database/employee_records',
   '/sandbox/private/employee_salary.xlsx',
   '/sandbox/confidential/customer_data.csv',
   '/sandbox/public/product_info.txt',
@@ -24,12 +24,18 @@ const API_BASE = 'https://ai-security-gateway-9mr3.onrender.com' + '/api';
 const Simulator = () => {
   const [formData, setFormData] = useState({
     agentId: '',
-    actionType: '',
-    resource: '',
-    description: ''
+    actionType: 'DATABASE_WRITE',
+    resource: '/sandbox/database/employee_records',
+    description: 'Update employee designation and compensation package in corporate database'
   });
 
   const [agents, setAgents] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState('AMYPO2024001');
+  const [newSalary, setNewSalary] = useState('₹18,50,000');
+  const [newPosition, setNewPosition] = useState('Senior Security Architect');
+  const [newDepartment, setNewDepartment] = useState('Cyber Security & AI');
+
   const [token, setToken] = useState<string>('');
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -38,7 +44,7 @@ const Simulator = () => {
   const [passkeyToken, setPasskeyToken] = useState<string | null>(null);
   const [directPasskey, setDirectPasskey] = useState<string>('');
 
-  // Setup Demo Auth & Fetch Agents
+  // Setup Demo Auth & Fetch Agents + Employees
   useEffect(() => {
     const initDemo = async () => {
       try {
@@ -50,10 +56,20 @@ const Simulator = () => {
         const jwt = authRes.data.token;
         setToken(jwt);
 
-        const agentsRes = await axios.get(`${API_BASE}/agents`, {
-          headers: { Authorization: `Bearer ${jwt}` }
-        });
+        const [agentsRes, empRes] = await Promise.all([
+          axios.get(`${API_BASE}/agents`, { headers: { Authorization: `Bearer ${jwt}` } }),
+          axios.get(`${API_BASE}/employees`, { headers: { Authorization: `Bearer ${jwt}` } }).catch(() => ({ data: [] }))
+        ]);
+
         setAgents(agentsRes.data);
+        if (agentsRes.data.length > 0) {
+          setFormData(prev => ({ ...prev, agentId: agentsRes.data[0]._id }));
+        }
+
+        setEmployees(empRes.data);
+        if (empRes.data.length > 0) {
+          setSelectedStudentId(empRes.data[0].studentId);
+        }
       } catch (err) {
         console.error('Failed to initialize demo:', err);
         setError('Failed to connect to backend. Please ensure the server is running and seeded.');
@@ -80,11 +96,20 @@ const Simulator = () => {
     setLoading(true);
     setError('');
 
+    // Parameters for live database write
+    const writeParameters = formData.actionType === 'DATABASE_WRITE' ? {
+      studentId: selectedStudentId,
+      salary: newSalary,
+      position: newPosition,
+      department: newDepartment
+    } : undefined;
+
     try {
       const res = await axios.post(
         `${API_BASE}/actions/execute`, 
         { 
           ...formData, 
+          parameters: writeParameters,
           passkeyToken: passkeyToken || undefined,
           passkey: effectivePasskey.trim() || undefined
         },
@@ -107,6 +132,7 @@ const Simulator = () => {
         decision: actionData.decision,
         reasons: actionData.reasons,
         executionResult: res.data.executionResult,
+        updatedRecord: res.data.updatedRecord,
         passkeyUsed: !!(passkeyToken || effectivePasskey.trim())
       });
 
@@ -129,7 +155,6 @@ const Simulator = () => {
   const handlePasskeyVerified = (pToken: string) => {
     setPasskeyToken(pToken);
     setPasskeyModal(false);
-    // Execute immediately with verified passkey token
     handleEvaluate(undefined, 'NAVGUARD@2026');
   };
 
@@ -147,9 +172,10 @@ const Simulator = () => {
       reasons: [
         `🛑 Invalid Admin Passkey: Authentication failed for sensitive action ${formData.actionType}`,
         `Zero-Trust Security Gateway prevented unauthorized database write`,
-        `Security Alert generated and logged to audit trail`
+        `Database was NOT modified. Incident logged to security audit trail`
       ],
       executionResult: 'Execution Prevented (Blocked by NavGuard AI - Invalid Passkey)',
+      updatedRecord: null,
       passkeyUsed: false
     });
   };
@@ -158,9 +184,16 @@ const Simulator = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Action Simulator</h2>
-        <p className="text-slate-400 text-sm mt-1">Test NavGuard AI by simulating AI agent requests.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <Database className="w-6 h-6 text-sky-400" />
+            Action Simulator & Live Database Gate
+          </h2>
+          <p className="text-slate-400 text-sm mt-1">
+            Test NavGuard AI Zero-Trust Gateway: Only verified passkey allows database modification.
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -172,10 +205,10 @@ const Simulator = () => {
 
       {/* Passkey Status Banner */}
       {passkeyToken && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-emerald-400 text-sm">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
             <Shield className="w-4 h-4" />
-            <span>🔓 Admin passkey verified — sensitive actions (DATABASE_WRITE) unlocked</span>
+            <span>🔓 Admin passkey verified — Database write operations unlocked for this session</span>
           </div>
           <button
             onClick={() => { setPasskeyToken(null); setDirectPasskey(''); }}
@@ -188,20 +221,20 @@ const Simulator = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Input Form */}
-        <div className="lg:col-span-5 bg-[#0f172a]/60 backdrop-blur-xl border border-slate-800/60 rounded-2xl p-6 relative overflow-hidden">
+        <div className="lg:col-span-6 bg-[#0f172a]/60 backdrop-blur-xl border border-slate-800/60 rounded-2xl p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary-600/5 rounded-full blur-[60px] pointer-events-none" />
           
           <h3 className="text-lg font-semibold text-slate-200 mb-6 flex items-center">
             <Server className="w-5 h-5 mr-2 text-primary-400" />
-            Configure Request
+            Configure Action Request
           </h3>
 
-          <form onSubmit={e => handleEvaluate(e)} className="space-y-5 relative z-10">
+          <form onSubmit={e => handleEvaluate(e)} className="space-y-4 relative z-10">
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Select Agent</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Select AI Agent</label>
               <select 
                 required
-                className="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                className="w-full bg-[#1e293b]/70 border border-slate-700 rounded-lg px-3.5 py-2.5 text-slate-200 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none text-sm transition-all"
                 value={formData.agentId}
                 onChange={e => setFormData({...formData, agentId: e.target.value})}
               >
@@ -213,53 +246,104 @@ const Simulator = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Select Action</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Select Action Type</label>
               <select 
                 required
-                className="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all"
+                className="w-full bg-[#1e293b]/70 border border-slate-700 rounded-lg px-3.5 py-2.5 text-slate-200 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none text-sm transition-all font-mono"
                 value={formData.actionType}
                 onChange={e => setFormData({...formData, actionType: e.target.value})}
               >
-                <option value="">-- Choose Action --</option>
                 {ACTIONS.map(action => (
                   <option key={action} value={action}>{action}</option>
                 ))}
               </select>
             </div>
 
-            {/* Admin Passkey Section for Sensitive Actions */}
+            {/* LIVE DATABASE MODIFICATION PANEL FOR DATABASE_WRITE */}
+            {formData.actionType === 'DATABASE_WRITE' && (
+              <div className="bg-gradient-to-br from-sky-950/40 to-slate-900/60 border border-sky-500/30 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-sky-500/20 pb-2">
+                  <span className="text-xs font-bold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5" />
+                    Target Database Record to Modify
+                  </span>
+                  <span className="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full font-mono">Live MongoDB</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Select Employee / Student to Update:</label>
+                  <select
+                    value={selectedStudentId}
+                    onChange={e => setSelectedStudentId(e.target.value)}
+                    className="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-sm focus:ring-2 focus:ring-sky-500 outline-none">
+                    {employees.map(emp => (
+                      <option key={emp.studentId} value={emp.studentId}>
+                        {emp.name} ({emp.studentId}) — Currently: {emp.position || 'Engineer'} [{emp.salary || 'N/A'}]
+                      </option>
+                    ))}
+                    {employees.length === 0 && (
+                      <option value="AMYPO2024001">Arun Kumar (AMYPO2024001)</option>
+                    )}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-slate-400 block mb-1">New Designation / Position:</label>
+                    <input
+                      type="text"
+                      value={newPosition}
+                      onChange={e => setNewPosition(e.target.value)}
+                      placeholder="e.g. Lead AI Architect"
+                      className="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-xs focus:ring-2 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 block mb-1">New Salary / CTC:</label>
+                    <input
+                      type="text"
+                      value={newSalary}
+                      onChange={e => setNewSalary(e.target.value)}
+                      placeholder="e.g. ₹20,00,000"
+                      className="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-xs focus:ring-2 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ADMIN PASSKEY INPUT */}
             {isSensitive && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2.5 animate-in fade-in duration-300">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                     <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                    Admin Passkey {passkeyToken ? '(Session Active ✅)' : '(Required for Write)'}
+                    Admin Passkey {passkeyToken ? '(Session Active ✅)' : '(Required for Database Modification)'}
                   </label>
-                  <span className="text-[10px] text-amber-400/80 font-mono">NAVGUARD@2026</span>
+                  <span className="text-[10px] text-amber-400/80 font-mono">Default: NAVGUARD@2026</span>
                 </div>
                 <input
                   type="password"
-                  placeholder={passkeyToken ? "Passkey session active" : "Enter passkey (e.g. NAVGUARD@2026)..."}
+                  placeholder={passkeyToken ? "Passkey session active (ready to write)" : "Enter passkey to allow database change..."}
                   disabled={!!passkeyToken}
                   value={directPasskey}
                   onChange={e => setDirectPasskey(e.target.value)}
                   className="w-full bg-[#1e293b] border border-amber-500/40 rounded-lg px-3.5 py-2 text-slate-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
                 />
                 <div className="flex items-center justify-between text-[11px] text-amber-400/80">
-                  <span>✅ Correct: Action ALLOWED</span>
-                  <span>❌ Wrong: DENIED & Alerted</span>
+                  <span>✅ Correct Passkey: Database Modified Live in MongoDB</span>
+                  <span>❌ Wrong Passkey: Denied & Blocked</span>
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Target Resource</label>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Target Resource</label>
               <input 
                 type="text"
                 required
                 list="resources"
-                placeholder="e.g. /sandbox/private/employee_salary.xlsx"
-                className="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all placeholder:text-slate-600"
+                className="w-full bg-[#1e293b]/70 border border-slate-700 rounded-lg px-3.5 py-2 text-slate-200 text-xs font-mono focus:ring-2 focus:ring-primary-500/50 outline-none"
                 value={formData.resource}
                 onChange={e => setFormData({...formData, resource: e.target.value})}
               />
@@ -268,25 +352,13 @@ const Simulator = () => {
               </datalist>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Action Description / Prompt</label>
-              <textarea 
-                required
-                rows={3}
-                placeholder="Describe what the agent wants to do..."
-                className="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 outline-none transition-all resize-none placeholder:text-slate-600"
-                value={formData.description}
-                onChange={e => setFormData({...formData, description: e.target.value})}
-              />
-            </div>
-
             <button 
               id="simulator-submit-btn"
               type="submit"
               disabled={loading || !token}
-              className={`w-full mt-4 font-medium py-3 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed ${
-                isSensitive && !passkeyToken && !directPasskey.trim()
-                  ? 'bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white'
+              className={`w-full mt-4 font-semibold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed ${
+                formData.actionType === 'DATABASE_WRITE'
+                  ? 'bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 text-white shadow-sky-600/20'
                   : 'bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-500 hover:to-blue-500 text-white'
               }`}
             >
@@ -295,7 +367,7 @@ const Simulator = () => {
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-current" />
-                  <span>Execute via NavGuard AI</span>
+                  <span>Execute {formData.actionType === 'DATABASE_WRITE' ? 'Database Write' : 'Action'} via NavGuard AI</span>
                 </>
               )}
             </button>
@@ -303,131 +375,107 @@ const Simulator = () => {
         </div>
 
         {/* Results Block */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-6">
           {result ? (
-            <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4 p-6">
+              
               {/* Header */}
-              <div className={`px-6 py-5 border-b border-slate-700 flex items-center justify-between
-                ${result.decision === 'ALLOW' ? 'bg-emerald-500/10' : 
-                  result.decision === 'BLOCK' ? 'bg-red-500/10' : 'bg-amber-500/10'}`}>
+              <div className={`p-4 rounded-xl border flex items-center justify-between
+                ${result.decision === 'ALLOW' ? 'bg-emerald-500/10 border-emerald-500/30' : 
+                  result.decision === 'BLOCK' ? 'bg-red-500/10 border-red-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
                 <div className="flex items-center space-x-3">
                   {result.decision === 'ALLOW' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> :
                    result.decision === 'BLOCK' ? <ShieldX className="w-6 h-6 text-red-400" /> :
                    <AlertTriangle className="w-6 h-6 text-amber-400" />}
-                  <h3 className="text-xl font-bold text-white">Security Analysis Result</h3>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">
+                      {result.decision === 'ALLOW' ? 'Database Modification Allowed' : 'Database Modification Denied'}
+                    </h3>
+                    <p className="text-xs text-slate-400">NavGuard AI Zero-Trust Gateway Evaluation</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {result.passkeyUsed && (
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1">
-                      <KeyRound className="w-3 h-3" /> PASSKEY
+                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border
+                  ${result.decision === 'ALLOW' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
+                    result.decision === 'BLOCK' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
+                    'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
+                  {result.decision === 'ALLOW' ? '✅ ACCEPTED' : '🛑 BLOCKED'}
+                </div>
+              </div>
+
+              {/* LIVE MODIFIED RECORD CARD */}
+              {result.updatedRecord && (
+                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4 space-y-2 animate-in zoom-in-95">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5" />
+                      Live MongoDB Document Updated
                     </span>
-                  )}
-                  <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border
-                    ${result.decision === 'ALLOW' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
-                      result.decision === 'BLOCK' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
-                      'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
-                    {result.decision === 'ALLOW' ? '✅ ALLOWED' : result.decision === 'BLOCK' ? '🛑 DENIED' : '⏸️ APPROVAL REQUIRED'}
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold">
+                      Real-Time DB Write
+                    </span>
                   </div>
-                </div>
-              </div>
-
-              {/* Body */}
-              <div className="p-6 space-y-6">
-                
-                {/* Metrics Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-[#1e293b]/50 border border-slate-700 rounded-xl p-3">
-                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Risk Score</p>
-                    <p className={`text-2xl font-bold ${
-                      result.riskScore <= 30 ? 'text-emerald-400' :
-                      result.riskScore <= 69 ? 'text-amber-400' : 'text-red-400'
-                    }`}>{result.riskScore}/100</p>
-                  </div>
-                  <div className="bg-[#1e293b]/50 border border-slate-700 rounded-xl p-3">
-                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Risk Level</p>
-                    <p className={`text-lg font-bold ${
-                      result.riskLevel === 'LOW' ? 'text-emerald-400' :
-                      result.riskLevel === 'MEDIUM' ? 'text-amber-400' :
-                      result.riskLevel === 'HIGH' ? 'text-orange-400' : 'text-red-400'
-                    }`}>{result.riskLevel}</p>
-                  </div>
-                  <div className="bg-[#1e293b]/50 border border-slate-700 rounded-xl p-3 sm:col-span-2">
-                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Permission Decision</p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      {result.permission === 'ALLOWED' ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      ) : result.permission === 'PENDING' ? (
-                        <span className="text-yellow-400 text-base">⏸️</span>
-                      ) : (
-                        <Lock className="w-4 h-4 text-red-400" />
-                      )}
-                      <p className={`text-sm font-semibold ${
-                        result.permission === 'ALLOWED' ? 'text-emerald-400'
-                        : result.permission === 'PENDING' ? 'text-yellow-400'
-                        : 'text-red-400'
-                      }`}>
-                        {result.permission}
-                      </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                      <p className="text-slate-500 text-[10px] uppercase">Employee / Student</p>
+                      <p className="font-semibold text-slate-200 mt-0.5">{result.updatedRecord.name}</p>
+                      <p className="text-[11px] text-sky-400 font-mono">{result.updatedRecord.studentId}</p>
                     </div>
-                  </div>
-                </div>
-
-                {/* Details */}
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-4 border-b border-slate-800 pb-4">
-                    <Bot className="w-5 h-5 text-slate-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-300">{result.agentName}</p>
-                      <p className="text-xs text-slate-500">Agent executing the action</p>
+                    <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                      <p className="text-slate-500 text-[10px] uppercase">New Designation</p>
+                      <p className="font-semibold text-emerald-400 mt-0.5">{result.updatedRecord.position}</p>
+                      <p className="text-[11px] text-slate-400">{result.updatedRecord.department}</p>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-start space-x-4 border-b border-slate-800 pb-4">
-                    <FileText className="w-5 h-5 text-slate-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-300"><span className="font-mono text-xs bg-slate-800 px-1.5 py-0.5 rounded text-primary-400 mr-2 border border-slate-700">{result.action}</span> {result.resource}</p>
-                      <p className="text-xs text-slate-500 mt-1">Action & Target Resource</p>
-                    </div>
-                  </div>
-
-                  {result.threats && result.threats.length > 0 && (
-                    <div className="flex items-start space-x-4 border-b border-slate-800 pb-4">
-                      <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
+                    <div className="col-span-2 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between">
                       <div>
-                        <ul className="text-sm font-medium text-red-400 list-disc list-inside">
-                          {result.threats.map((t: string, i: number) => <li key={i}>{t}</li>)}
-                        </ul>
-                        <p className="text-xs text-slate-500 mt-1">Threats Detected</p>
+                        <p className="text-slate-500 text-[10px] uppercase">Updated Compensation / Salary</p>
+                        <p className="font-bold text-emerald-300 text-sm">{result.updatedRecord.salary}</p>
                       </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-start space-x-4">
-                    <Shield className="w-5 h-5 text-slate-500 mt-0.5" />
-                    <div>
-                      <ul className="text-sm font-medium text-slate-300 list-disc list-inside space-y-1">
-                        {result.reasons.map((r: string, i: number) => <li key={i}>{r}</li>)}
-                      </ul>
-                      <p className="text-xs text-slate-500 mt-1">Decision Reasons</p>
+                      <span className="text-xs text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-md">
+                        Synced to Employee Records ✨
+                      </span>
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div className="mt-6 pt-4 border-t border-slate-700/50 text-center">
-                  <p className="text-sm font-mono text-slate-400 bg-slate-900/50 py-2.5 rounded-lg border border-slate-800">
-                    Status: <span className={`font-bold ${result.decision === 'ALLOW' ? 'text-emerald-400' : 'text-red-400'}`}>{result.executionResult}</span>
-                  </p>
-                </div>
-
+              {/* Status Message */}
+              <div className="bg-[#1e293b]/70 border border-slate-700 rounded-xl p-3.5 text-xs font-mono">
+                <span className="text-slate-500 block mb-1">Execution Status:</span>
+                <span className={`font-semibold ${result.decision === 'ALLOW' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {result.executionResult}
+                </span>
               </div>
+
+              {/* Reasons */}
+              <div className="space-y-2 text-xs">
+                <p className="font-semibold text-slate-400 uppercase tracking-wider">Gateway Policy Reasoning:</p>
+                <ul className="space-y-1.5">
+                  {result.reasons?.map((r: string, i: number) => (
+                    <li key={i} className="text-slate-300 bg-slate-900/50 p-2 rounded-lg border border-slate-800/80 flex items-start gap-2">
+                      <span className="text-sky-400 font-bold">•</span> {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {result.threats && result.threats.length > 0 && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-300">
+                  <p className="font-bold text-red-400 mb-1 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Security Threat Blocked:
+                  </p>
+                  <p>{result.threats.join(', ')}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="h-full border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center p-12 text-center bg-slate-900/20">
               <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
-                <Shield className="w-8 h-8 text-slate-600" />
+                <Database className="w-8 h-8 text-slate-600" />
               </div>
-              <h3 className="text-lg font-medium text-slate-400">No Action Simulated</h3>
-              <p className="text-sm text-slate-500 mt-2 max-w-sm">Configure a request on the left and execute it via NavGuard AI to see the Zero-Trust security analysis here.</p>
+              <h3 className="text-lg font-medium text-slate-400">Ready to Modify Database</h3>
+              <p className="text-sm text-slate-500 mt-2 max-w-sm">
+                Select an employee and enter new details on the left. Enter passkey <span className="text-sky-400 font-mono">NAVGUARD@2026</span> to allow live modification in MongoDB!
+              </p>
             </div>
           )}
         </div>

@@ -69,7 +69,8 @@ export default function Employees() {
   const [passkeyModal, setPasskeyModal] = useState(false);
   const [passkeyToken, setPasskeyToken] = useState<string | null>(null);
   const [passkeyVerified, setPasskeyVerified] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'add' | 'delete' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'add' | 'edit' | 'delete' | null>(null);
+  const [pendingEditEmployee, setPendingEditEmployee] = useState<Employee | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingDeleteName, setPendingDeleteName] = useState('');
 
@@ -89,6 +90,30 @@ export default function Employees() {
       setEmployees([]);
     }
     setLoading(false);
+  };
+
+  const handleStartAdd = () => {
+    if (!passkeyToken) {
+      setPendingAction('add');
+      setPasskeyModal(true);
+      return;
+    }
+    setForm(emptyEmployee);
+    setShowForm(true);
+    setError('');
+  };
+
+  const handleStartEdit = (emp: Employee) => {
+    if (!passkeyToken) {
+      setPendingAction('edit');
+      setPendingEditEmployee(emp);
+      setPasskeyModal(true);
+      return;
+    }
+    setForm(emp);
+    setShowForm(true);
+    setError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSkillToggle = (skill: string) => {
@@ -176,13 +201,21 @@ export default function Employees() {
     setPasskeyToken(token);
     setPasskeyVerified(true);
     setPasskeyModal(false);
-    // Auto-execute pending action
+
     if (pendingAction === 'add') {
-      setTimeout(() => handleSave(), 100);
+      setForm(emptyEmployee);
+      setShowForm(true);
+      setError('');
+    } else if (pendingAction === 'edit' && pendingEditEmployee) {
+      setForm(pendingEditEmployee);
+      setShowForm(true);
+      setError('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (pendingAction === 'delete' && pendingDeleteId) {
       setTimeout(() => handleDelete(pendingDeleteId!, pendingDeleteName), 100);
     }
     setPendingAction(null);
+    setPendingEditEmployee(null);
   };
 
   return (
@@ -199,7 +232,7 @@ export default function Employees() {
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setForm(emptyEmployee); setError(''); }}
+          onClick={handleStartAdd}
           className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-medium text-sm transition-all shadow-lg shadow-sky-600/20">
           <Plus className="w-4 h-4" />
           Add Employee
@@ -440,9 +473,7 @@ export default function Employees() {
                       <button 
                         onClick={e => {
                           e.stopPropagation();
-                          setForm(emp);
-                          setShowForm(true);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                          handleStartEdit(emp);
                         }}
                         title="Edit Employee"
                         className="p-2 text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors">

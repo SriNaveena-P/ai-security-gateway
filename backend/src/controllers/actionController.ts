@@ -7,6 +7,7 @@ import { AuditLog } from '../models/AuditLog';
 import { SecurityAlert, AlertSeverity } from '../models/SecurityAlert';
 import { sendWebhookAlert } from '../utils/webhook';
 import { isPasskeyValid, validatePasskeyTokenString } from './employeeController';
+import { StudentRecord } from '../models/StudentRecord';
 
 export const evaluateActionRequest = async (req: AuthRequest, res: Response) => {
   try {
@@ -141,11 +142,45 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
     } as any);
 
     let executionResult = '';
+    let updatedRecord: any = null;
     
     if (evaluationResult.decision === ActionDecision.ALLOW) {
       executionResult = isPasskeyAuthorized
         ? 'Execution Success - Admin Passkey Authorized (Database Updated in Sandbox)'
         : 'Mock Execution Success (Sandbox)';
+
+      // If DATABASE_WRITE was authorized with passkey, actually update the live MongoDB record!
+      if (actionType === 'DATABASE_WRITE' && isPasskeyAuthorized && parameters) {
+        try {
+          const query = parameters.studentId 
+            ? { studentId: parameters.studentId } 
+            : parameters.employeeId 
+            ? { _id: parameters.employeeId } 
+            : null;
+
+          if (query) {
+            const updateFields: any = {};
+            if (parameters.salary) updateFields.salary = parameters.salary;
+            if (parameters.position) updateFields.position = parameters.position;
+            if (parameters.department) updateFields.department = parameters.department;
+            if (parameters.address) updateFields.address = parameters.address;
+            if (parameters.name) updateFields.name = parameters.name;
+
+            updatedRecord = await StudentRecord.findOneAndUpdate(
+              query,
+              { $set: updateFields },
+              { new: true }
+            );
+
+            if (updatedRecord) {
+              executionResult = `✅ Real MongoDB Database Modified: ${updatedRecord.name} (${updatedRecord.studentId}) updated. Position: ${updatedRecord.position} | Salary: ${updatedRecord.salary}`;
+            }
+          }
+        } catch (dbErr) {
+          console.error('Failed to perform live database write:', dbErr);
+        }
+      }
+
       await AuditLog.create({
         userId,
         agentId,
@@ -209,7 +244,8 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
     
     res.status(201).json({
       actionRequest,
-      executionResult
+      executionResult,
+      updatedRecord
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
