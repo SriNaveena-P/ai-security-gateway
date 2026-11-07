@@ -8,10 +8,11 @@ interface PasskeyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onVerified: (token: string) => void;
+  onFailed?: (errorMsg: string) => void;
   actionDescription?: string;
 }
 
-export default function PasskeyModal({ isOpen, onClose, onVerified, actionDescription }: PasskeyModalProps) {
+export default function PasskeyModal({ isOpen, onClose, onVerified, onFailed, actionDescription }: PasskeyModalProps) {
   const [passkey, setPasskey] = useState('');
   const [showPasskey, setShowPasskey] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,9 @@ export default function PasskeyModal({ isOpen, onClose, onVerified, actionDescri
       } else {
         setError(resp?.message || '❌ Invalid passkey!');
         setRemainingAttempts(resp?.remainingAttempts ?? 4);
+      }
+      if (onFailed) {
+        onFailed(resp?.message || 'Invalid passkey entered');
       }
       setPasskey('');
     }

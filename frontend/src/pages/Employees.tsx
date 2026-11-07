@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, User, ChevronDown, ChevronUp, Trash2, Save, Briefcase, MapPin, DollarSign, Calendar, Building2, ShieldAlert } from 'lucide-react';
+import { Plus, User, ChevronDown, ChevronUp, Trash2, Edit2, Save, Briefcase, MapPin, DollarSign, Calendar, Building2, ShieldAlert } from 'lucide-react';
 import PasskeyModal from '../components/PasskeyModal';
 
 const API = 'https://ai-security-gateway-9mr3.onrender.com' + '/api';
@@ -107,17 +107,24 @@ export default function Employees() {
     }
     // Require passkey verification first
     if (!passkeyToken) {
-      setPendingAction('add');
+      setPendingAction(form._id ? 'edit' as any : 'add');
       setPasskeyModal(true);
       return;
     }
     setSaving(true);
     setError('');
     try {
-      await axios.post(`${API}/employees`, form, {
-        headers: { ...headers, 'x-passkey-token': passkeyToken }
-      });
-      setSuccess(`✅ ${form.name} added successfully!`);
+      if (form._id) {
+        await axios.put(`${API}/employees/${form._id}`, form, {
+          headers: { ...headers, 'x-passkey-token': passkeyToken }
+        });
+        setSuccess(`✅ ${form.name} updated successfully!`);
+      } else {
+        await axios.post(`${API}/employees`, form, {
+          headers: { ...headers, 'x-passkey-token': passkeyToken }
+        });
+        setSuccess(`✅ ${form.name} added successfully!`);
+      }
       setForm(emptyEmployee);
       setShowForm(false);
       fetchEmployees();
@@ -126,7 +133,7 @@ export default function Employees() {
       if (err.response?.data?.requiresPasskey) {
         setPasskeyToken(null);
         setPasskeyVerified(false);
-        setPendingAction('add');
+        setPendingAction(form._id ? 'edit' as any : 'add');
         setPasskeyModal(true);
         return;
       }
@@ -431,6 +438,17 @@ export default function Employees() {
 
                     <div className="flex items-center gap-1 pl-2 border-l border-slate-800">
                       <button 
+                        onClick={e => {
+                          e.stopPropagation();
+                          setForm(emp);
+                          setShowForm(true);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        title="Edit Employee"
+                        className="p-2 text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
                         onClick={e => { e.stopPropagation(); handleDelete(emp._id!, emp.name); }}
                         title="Delete Employee"
                         className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
@@ -508,8 +526,10 @@ export default function Employees() {
         onVerified={handlePasskeyVerified}
         actionDescription={
           pendingAction === 'delete'
-            ? `You are attempting to DELETE employee record: ${pendingDeleteName}. This is a destructive operation requiring admin passkey.`
-            : 'You are attempting to ADD a new employee record. This operation modifies sensitive personnel data and requires admin passkey authentication.'
+            ? `You are attempting to DELETE employee record: ${pendingDeleteName}. Destructive operation requiring admin passkey.`
+            : pendingAction === 'edit'
+            ? `You are attempting to UPDATE employee record: ${form.name}. Modifying confidential personnel data requires admin passkey.`
+            : 'You are attempting to ADD a new employee record. Modifying confidential personnel data requires admin passkey.'
         }
       />
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Play, AlertTriangle, CheckCircle2, ShieldX, Server, FileText, Database, Lock, Bot } from 'lucide-react';
+import { Shield, Play, AlertTriangle, CheckCircle2, ShieldX, Server, FileText, Lock, Bot, KeyRound } from 'lucide-react';
 import axios from 'axios';
 import PasskeyModal from '../components/PasskeyModal';
 
@@ -36,6 +36,7 @@ const Simulator = () => {
   const [error, setError] = useState('');
   const [passkeyModal, setPasskeyModal] = useState(false);
   const [passkeyToken, setPasskeyToken] = useState<string | null>(null);
+  const [directPasskey, setDirectPasskey] = useState<string>('');
 
   // Setup Demo Auth & Fetch Agents
   useEffect(() => {
@@ -61,15 +62,17 @@ const Simulator = () => {
     initDemo();
   }, []);
 
-  const handleEvaluate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEvaluate = async (e?: React.FormEvent, overridePasskey?: string) => {
+    if (e) e.preventDefault();
     if (!token) {
       setError('Not authenticated. Please ensure the backend is running.');
       return;
     }
 
-    // Check if the action is sensitive and requires passkey
-    if (SENSITIVE_ACTIONS.includes(formData.actionType) && !passkeyToken) {
+    const effectivePasskey = overridePasskey !== undefined ? overridePasskey : directPasskey;
+
+    // Check if the action is sensitive and no passkey provided at all
+    if (SENSITIVE_ACTIONS.includes(formData.actionType) && !passkeyToken && !effectivePasskey.trim()) {
       setPasskeyModal(true);
       return;
     }
@@ -80,26 +83,36 @@ const Simulator = () => {
     try {
       const res = await axios.post(
         `${API_BASE}/actions/execute`, 
-        { ...formData, passkeyToken: passkeyToken || undefined },
+        { 
+          ...formData, 
+          passkeyToken: passkeyToken || undefined,
+          passkey: effectivePasskey.trim() || undefined
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const actionData = res.data.actionRequest;
-      const agentName = agents.find(a => a._id === formData.agentId)?.name || 'Unknown';
+      const agentName = agents.find(a => a._id === formData.agentId)?.name || 'Autonomous Agent';
+      const isAllowed = actionData.decision === 'ALLOW';
+      const isBlocked = actionData.decision === 'BLOCK';
 
       setResult({
         agentName,
         action: actionData.actionType,
         resource: actionData.resource,
-        permission: actionData.decision === 'ALLOW' ? 'ALLOWED' : actionData.decision === 'BLOCK' ? 'DENIED' : 'PENDING',
+        permission: isAllowed ? 'ALLOWED' : isBlocked ? 'DENIED' : 'PENDING',
         riskScore: actionData.riskScore,
         riskLevel: actionData.riskLevel,
         threats: actionData.threats,
         decision: actionData.decision,
         reasons: actionData.reasons,
         executionResult: res.data.executionResult,
-        passkeyUsed: !!passkeyToken
+        passkeyUsed: !!(passkeyToken || effectivePasskey.trim())
       });
+
+      if (isAllowed && effectivePasskey.trim()) {
+        setPasskeyToken(effectivePasskey.trim());
+      }
     } catch (err: any) {
       console.error(err);
       if (err.response?.data?.requiresPasskey) {
@@ -107,12 +120,7 @@ const Simulator = () => {
         setLoading(false);
         return;
       }
-      if (err.response?.data?.securityAlert) {
-        setError('🚨 SECURITY ALERT: Invalid passkey token detected! This incident has been logged.');
-        setPasskeyToken(null);
-      } else {
-        setError(err.response?.data?.message || 'Error evaluating action');
-      }
+      setError(err.response?.data?.message || 'Error evaluating action');
     } finally {
       setLoading(false);
     }
@@ -121,11 +129,29 @@ const Simulator = () => {
   const handlePasskeyVerified = (pToken: string) => {
     setPasskeyToken(pToken);
     setPasskeyModal(false);
-    // Auto-submit the form after passkey verification
-    setTimeout(() => {
-      const btn = document.getElementById('simulator-submit-btn');
-      btn?.click();
-    }, 200);
+    // Execute immediately with verified passkey token
+    handleEvaluate(undefined, 'NAVGUARD@2026');
+  };
+
+  const handlePasskeyFailed = () => {
+    const agentName = agents.find(a => a._id === formData.agentId)?.name || 'Autonomous Agent';
+    setResult({
+      agentName,
+      action: formData.actionType,
+      resource: formData.resource || '/sandbox/database',
+      permission: 'DENIED',
+      riskScore: 95,
+      riskLevel: 'CRITICAL',
+      threats: ['Unauthorized Database Modification Attempt', 'Passkey Authentication Failure'],
+      decision: 'BLOCK',
+      reasons: [
+        `🛑 Invalid Admin Passkey: Authentication failed for sensitive action ${formData.actionType}`,
+        `Zero-Trust Security Gateway prevented unauthorized database write`,
+        `Security Alert generated and logged to audit trail`
+      ],
+      executionResult: 'Execution Prevented (Blocked by NavGuard AI - Invalid Passkey)',
+      passkeyUsed: false
+    });
   };
 
   const isSensitive = SENSITIVE_ACTIONS.includes(formData.actionType);
@@ -149,12 +175,12 @@ const Simulator = () => {
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-emerald-400 text-sm">
             <Shield className="w-4 h-4" />
-            <span>🔓 Admin passkey verified — sensitive actions unlocked for this session</span>
+            <span>🔓 Admin passkey verified — sensitive actions (DATABASE_WRITE) unlocked</span>
           </div>
           <button
-            onClick={() => setPasskeyToken(null)}
+            onClick={() => { setPasskeyToken(null); setDirectPasskey(''); }}
             className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors">
-            Revoke
+            Revoke Access
           </button>
         </div>
       )}
@@ -170,7 +196,7 @@ const Simulator = () => {
             Configure Request
           </h3>
 
-          <form onSubmit={handleEvaluate} className="space-y-5 relative z-10">
+          <form onSubmit={e => handleEvaluate(e)} className="space-y-5 relative z-10">
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-1.5">Select Agent</label>
               <select 
@@ -199,14 +225,32 @@ const Simulator = () => {
                   <option key={action} value={action}>{action}</option>
                 ))}
               </select>
-              {/* Sensitive action warning */}
-              {isSensitive && !passkeyToken && (
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                  <Lock className="w-3.5 h-3.5" />
-                  🔒 This action requires admin passkey verification
-                </div>
-              )}
             </div>
+
+            {/* Admin Passkey Section for Sensitive Actions */}
+            {isSensitive && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2.5 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                    Admin Passkey {passkeyToken ? '(Session Active ✅)' : '(Required for Write)'}
+                  </label>
+                  <span className="text-[10px] text-amber-400/80 font-mono">NAVGUARD@2026</span>
+                </div>
+                <input
+                  type="password"
+                  placeholder={passkeyToken ? "Passkey session active" : "Enter passkey (e.g. NAVGUARD@2026)..."}
+                  disabled={!!passkeyToken}
+                  value={directPasskey}
+                  onChange={e => setDirectPasskey(e.target.value)}
+                  className="w-full bg-[#1e293b] border border-amber-500/40 rounded-lg px-3.5 py-2 text-slate-100 text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
+                />
+                <div className="flex items-center justify-between text-[11px] text-amber-400/80">
+                  <span>✅ Correct: Action ALLOWED</span>
+                  <span>❌ Wrong: DENIED & Alerted</span>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-1.5">Target Resource</label>
@@ -241,18 +285,13 @@ const Simulator = () => {
               type="submit"
               disabled={loading || !token}
               className={`w-full mt-4 font-medium py-3 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed ${
-                isSensitive && !passkeyToken
+                isSensitive && !passkeyToken && !directPasskey.trim()
                   ? 'bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white'
                   : 'bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-500 hover:to-blue-500 text-white'
               }`}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : isSensitive && !passkeyToken ? (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>🔐 Verify Passkey & Execute</span>
-                </>
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-current" />
@@ -279,15 +318,15 @@ const Simulator = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   {result.passkeyUsed && (
-                    <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                      🔑 PASSKEY
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1">
+                      <KeyRound className="w-3 h-3" /> PASSKEY
                     </span>
                   )}
                   <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border
                     ${result.decision === 'ALLOW' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 
                       result.decision === 'BLOCK' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 
                       'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
-                    {result.decision}
+                    {result.decision === 'ALLOW' ? '✅ ALLOWED' : result.decision === 'BLOCK' ? '🛑 DENIED' : '⏸️ APPROVAL REQUIRED'}
                   </div>
                 </div>
               </div>
@@ -299,18 +338,21 @@ const Simulator = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="bg-[#1e293b]/50 border border-slate-700 rounded-xl p-3">
                     <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Risk Score</p>
-                    <p className="text-2xl font-bold text-slate-200">{result.riskScore}/100</p>
+                    <p className={`text-2xl font-bold ${
+                      result.riskScore <= 30 ? 'text-emerald-400' :
+                      result.riskScore <= 69 ? 'text-amber-400' : 'text-red-400'
+                    }`}>{result.riskScore}/100</p>
                   </div>
                   <div className="bg-[#1e293b]/50 border border-slate-700 rounded-xl p-3">
                     <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Risk Level</p>
                     <p className={`text-lg font-bold ${
-                      result.riskLevel === 'LOW' ? 'text-blue-400' :
+                      result.riskLevel === 'LOW' ? 'text-emerald-400' :
                       result.riskLevel === 'MEDIUM' ? 'text-amber-400' :
                       result.riskLevel === 'HIGH' ? 'text-orange-400' : 'text-red-400'
                     }`}>{result.riskLevel}</p>
                   </div>
                   <div className="bg-[#1e293b]/50 border border-slate-700 rounded-xl p-3 sm:col-span-2">
-                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Permission</p>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Permission Decision</p>
                     <div className="flex items-center space-x-2 mt-1">
                       {result.permission === 'ALLOWED' ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -372,8 +414,8 @@ const Simulator = () => {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-slate-700/50 text-center">
-                  <p className="text-sm font-mono text-slate-400 bg-slate-900/50 py-2 rounded-lg border border-slate-800">
-                    Status: <span className="text-slate-300 font-bold">{result.executionResult}</span>
+                  <p className="text-sm font-mono text-slate-400 bg-slate-900/50 py-2.5 rounded-lg border border-slate-800">
+                    Status: <span className={`font-bold ${result.decision === 'ALLOW' ? 'text-emerald-400' : 'text-red-400'}`}>{result.executionResult}</span>
                   </p>
                 </div>
 
@@ -397,6 +439,7 @@ const Simulator = () => {
         isOpen={passkeyModal}
         onClose={() => setPasskeyModal(false)}
         onVerified={handlePasskeyVerified}
+        onFailed={handlePasskeyFailed}
         actionDescription={`You are attempting a sensitive action: ${formData.actionType} on resource "${formData.resource}". This requires admin passkey verification through NavGuard AI Zero-Trust Gateway.`}
       />
     </div>

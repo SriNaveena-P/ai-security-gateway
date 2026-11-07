@@ -6,6 +6,7 @@ import { Approval } from '../models/Approval';
 import { AuditLog } from '../models/AuditLog';
 import { SecurityAlert, AlertSeverity } from '../models/SecurityAlert';
 import { sendWebhookAlert } from '../utils/webhook';
+import { isPasskeyValid, validatePasskeyTokenString } from './employeeController';
 
 export const evaluateActionRequest = async (req: AuthRequest, res: Response) => {
   try {
@@ -29,49 +30,89 @@ export const evaluateActionRequest = async (req: AuthRequest, res: Response) => 
 
 export const executeActionRequest = async (req: AuthRequest, res: Response) => {
   try {
-    const { agentId, actionType, resource, description, parameters, passkeyToken } = req.body;
+    const { agentId, actionType, resource, description, parameters, passkeyToken, passkey } = req.body;
     const userId = req.user?._id ? (req.user._id as any).toString() : '';
 
     // Passkey check for sensitive write operations
     const SENSITIVE_ACTIONS = ['DATABASE_WRITE', 'SENSITIVE_DATA_ACCESS', 'FILE_WRITE'];
-    if (SENSITIVE_ACTIONS.includes(actionType)) {
-      if (!passkeyToken) {
-        return res.status(403).json({
-          message: '🔒 This action requires passkey authentication. Sensitive data operations need admin passkey verification.',
-          requiresPasskey: true,
-          actionType,
-        });
+    const isSensitive = SENSITIVE_ACTIONS.includes(actionType);
+
+    let isPasskeyAuthorized = false;
+    let passkeyAttempted = false;
+
+    if (passkey) {
+      passkeyAttempted = true;
+      if (isPasskeyValid(passkey)) {
+        isPasskeyAuthorized = true;
       }
-      // Validate the passkey token
-      try {
-        const decoded = Buffer.from(passkeyToken, 'base64').toString();
-        if (!decoded.startsWith('navguard_')) {
-          // Generate security alert for invalid token
-          await SecurityAlert.create({
-            severity: AlertSeverity.CRITICAL,
-            description: `🛑 FORGED PASSKEY TOKEN: Agent attempted to bypass passkey with invalid token for ${actionType} on ${resource}`,
-            agentId,
-            status: 'NEW',
-          } as any);
-          return res.status(403).json({
-            message: '🚫 Invalid passkey token detected! Security alert has been generated.',
-            requiresPasskey: true,
-            securityAlert: true,
-          });
-        }
-        const timestamp = parseInt(decoded.split('_')[1]);
-        if (Date.now() - timestamp > 30 * 60 * 1000) {
-          return res.status(403).json({
-            message: '⏰ Passkey session expired. Please re-authenticate with your passkey.',
-            requiresPasskey: true,
-          });
-        }
-      } catch {
-        return res.status(403).json({
-          message: '🚫 Invalid passkey token!',
-          requiresPasskey: true,
-        });
+    } else if (passkeyToken) {
+      passkeyAttempted = true;
+      if (validatePasskeyTokenString(passkeyToken)) {
+        isPasskeyAuthorized = true;
       }
+    }
+
+    // If it's a sensitive action (e.g. DATABASE_WRITE) and passkey check failed:
+    if (isSensitive && !isPasskeyAuthorized) {
+      const reasons = [
+        passkeyAttempted
+          ? `🛑 Invalid Admin Passkey: Authentication failed for sensitive action ${actionType}`
+          : `🔒 Admin Passkey Required: Sensitive action ${actionType} requires admin passkey verification`
+      ];
+      const threats = [
+        'Unauthorized Database Modification Attempt',
+        'Passkey Authentication Failure'
+      ];
+
+      const actionRequest: any = await ActionRequest.create({
+        agentId,
+        userId,
+        actionType,
+        resource,
+        description,
+        parameters,
+        riskScore: 95,
+        riskLevel: 'CRITICAL',
+        reasons,
+        threats,
+        decision: ActionDecision.BLOCK
+      } as any);
+
+      await AuditLog.create({
+        userId,
+        agentId,
+        actionType,
+        resource,
+        riskScore: 95,
+        riskLevel: 'CRITICAL',
+        threatsDetected: threats,
+        decision: ActionDecision.BLOCK,
+        reasons,
+        executionStatus: 'BLOCKED'
+      } as any);
+
+      await SecurityAlert.create({
+        severity: AlertSeverity.CRITICAL,
+        description: `🛑 BLOCKED: Unauthorized attempt on sensitive operation ${actionType} on ${resource} - Invalid or missing passkey`,
+        agentId,
+        actionRequestId: actionRequest?._id,
+        status: 'NEW'
+      } as any);
+
+      sendWebhookAlert({
+        severity: AlertSeverity.CRITICAL,
+        description: `Unauthorized attempt on ${actionType}`,
+        agentId,
+        actionType,
+        resource,
+        riskScore: 95
+      });
+
+      return res.status(200).json({
+        actionRequest,
+        executionResult: 'Execution Prevented (Blocked by NavGuard AI - Invalid Passkey)',
+        passkeyVerified: false
+      });
     }
 
     const evaluationResult = await evaluateAction({
@@ -80,7 +121,8 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
       actionType,
       resource,
       description,
-      parameters
+      parameters,
+      isPasskeyAuthorized
     });
 
     // Create an ActionRequest log in the DB
@@ -101,7 +143,9 @@ export const executeActionRequest = async (req: AuthRequest, res: Response) => {
     let executionResult = '';
     
     if (evaluationResult.decision === ActionDecision.ALLOW) {
-      executionResult = 'Mock Execution Success (Sandbox)';
+      executionResult = isPasskeyAuthorized
+        ? 'Execution Success - Admin Passkey Authorized (Database Updated in Sandbox)'
+        : 'Mock Execution Success (Sandbox)';
       await AuditLog.create({
         userId,
         agentId,

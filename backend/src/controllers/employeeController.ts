@@ -152,20 +152,31 @@ export const changePasskey = async (req: Request, res: Response) => {
 };
 
 // ──────────────────────────────────────────
-// Middleware: validate passkey token header
+// Helper exports for shared verification
 // ──────────────────────────────────────────
-function validatePasskeyToken(req: Request): boolean {
-  const token = req.headers['x-passkey-token'] as string;
+export function isPasskeyValid(passkey: string): boolean {
+  if (!passkey) return false;
+  return bcrypt.compareSync(passkey, passkeyHash);
+}
+
+export function validatePasskeyTokenString(token: string): boolean {
   if (!token) return false;
   try {
     const decoded = Buffer.from(token, 'base64').toString();
     if (!decoded.startsWith('navguard_')) return false;
     const timestamp = parseInt(decoded.split('_')[1]);
-    // Token valid for 30 minutes
     return Date.now() - timestamp < 30 * 60 * 1000;
   } catch {
     return false;
   }
+}
+
+// ──────────────────────────────────────────
+// Middleware: validate passkey token header
+// ──────────────────────────────────────────
+function validatePasskeyToken(req: Request): boolean {
+  const token = req.headers['x-passkey-token'] as string;
+  return validatePasskeyTokenString(token);
 }
 
 // ──────────────────────────────────────────
@@ -235,6 +246,34 @@ export const addEmployee = async (req: Request, res: Response) => {
     } as any);
 
     res.status(201).json(employee);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ──────────────────────────────────────────
+// PUT /api/employees/:id  (UPDATE — passkey required)
+// ──────────────────────────────────────────
+export const updateEmployee = async (req: Request, res: Response) => {
+  if (!validatePasskeyToken(req)) {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    await logSecurityAlert(
+      `🛑 BLOCKED: Attempt to update employee record without valid passkey from IP ${ip}`,
+      AlertSeverity.HIGH,
+      ip
+    );
+    return res.status(403).json({
+      message: '🔒 Access Denied — Valid passkey authentication required to update employee records.',
+      requiresPasskey: true,
+    });
+  }
+
+  try {
+    const updated = await StudentRecord.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    res.json(updated);
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
